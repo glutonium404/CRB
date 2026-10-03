@@ -95,7 +95,7 @@ function logout(): void {
 }
 
 function icon(_name: string): string {
-  const icons: Record<string, string> = { send: '↗', edit: '✎', suspend: '−', restore: '↺', delete: '×' }
+  const icons: Record<string, string> = { send: '↗', edit: '✎', suspend: '−', restore: '↺', delete: '×', groups: '▦' }
   return icons[_name] || ''
 }
 
@@ -259,10 +259,22 @@ async function crManagementPage(): Promise<void> {
       const user = users.find(item => item.id === Number(button.dataset.crGroups))
       if (!user) return
       const selected = new Set((user.assigned_groups || []).map(group => group.jid))
-      const values = groups.map(group => `${selected.has(group.jid) ? '[x]' : '[ ]'} ${group.name} (${group.jid})`).join('\n')
-      const answer = await promptDialog('Assign groups', `Enter group JIDs separated by commas. Available:\n${values}`, [...selected].join(','))
-      if (answer === null) return
-      try { await api(`/users/${user.id}/groups`, { method: 'PUT', body: JSON.stringify({ groupJids: answer.split(',').map(value => value.trim()).filter(Boolean) }) }); showToast('Group access updated'); crManagementPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Could not update groups', true) }
+      const dialog = document.createElement('dialog')
+      dialog.innerHTML = `<form method="dialog" class="dialog-form group-assignment-dialog"><h2>Assign groups</h2><p class="muted">${escape(user.display_name)} currently has access to ${selected.size} group${selected.size === 1 ? '' : 's'}.</p><div class="group-picker">${groups.length ? groups.map(group => `<label class="group-option"><input type="checkbox" name="group" value="${escape(group.jid)}" ${selected.has(group.jid) ? 'checked' : ''}><span><strong>${escape(group.name)}</strong><small>${escape(group.alias ? `@${group.alias}` : group.jid)}</small></span></label>`).join('') : '<p class="muted">No groups are available. Sync groups first.</p>'}</div><div class="form-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary" type="submit">Save access</button></div></form>`
+      document.body.append(dialog)
+      const close = () => { dialog.close(); dialog.remove() }
+      dialog.querySelector('[data-close]')?.addEventListener('click', close)
+      dialog.querySelector('form')?.addEventListener('submit', async event => {
+        event.preventDefault()
+        const groupJids = [...dialog.querySelectorAll<HTMLInputElement>('input[name="group"]:checked')].map(input => input.value)
+        try {
+          await api(`/users/${user.id}/groups`, { method: 'PUT', body: JSON.stringify({ groupJids }) })
+          close()
+          showToast('Group access updated')
+          crManagementPage()
+        } catch (err) { showToast(err instanceof Error ? err.message : 'Could not update groups', true) }
+      })
+      dialog.showModal()
     }))
     document.querySelectorAll<HTMLButtonElement>('[data-cr-suspend]').forEach(button => button.addEventListener('click', async () => { try { await api(`/users/${button.dataset.crSuspend}`, { method: 'DELETE' }); showToast('CR suspended'); crManagementPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Suspend failed', true) } }))
     document.querySelectorAll<HTMLButtonElement>('[data-cr-restore]').forEach(button => button.addEventListener('click', async () => { try { await api(`/users/${button.dataset.crRestore}`, { method: 'PUT', body: JSON.stringify({ isActive: true }) }); showToast('CR restored'); crManagementPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Restore failed', true) } }))
