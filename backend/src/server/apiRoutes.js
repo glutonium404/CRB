@@ -615,8 +615,15 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       if (req.user.id === id) {
         return res.status(400).json({ success: false, error: 'Cannot delete your own account' });
       }
-      adminRepo.removeAdmin(target.phone);
-      const result = getDb().prepare('DELETE FROM web_users WHERE id = ?').run(id);
+      const db = getDb();
+      const result = db.transaction(() => {
+        // Explicitly remove assignments so databases created before the
+        // web_user_groups foreign-key migration can still delete accounts.
+        db.prepare('DELETE FROM web_user_groups WHERE user_id = ?').run(id);
+        const deleted = db.prepare('DELETE FROM web_users WHERE id = ?').run(id);
+        if (deleted.changes) adminRepo.removeAdmin(target.phone);
+        return deleted;
+      })();
       if (!result.changes) return res.status(404).json({ success: false, error: 'User not found' });
       res.json({ success: true, message: `User "${target.username}" permanently deleted` });
     } catch (err) {
