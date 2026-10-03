@@ -7,6 +7,7 @@ import { groupRepo } from '../database/groupRepo.js';
 import { createApiRoutes } from './apiRoutes.js';
 import { seedOwnerAccount } from './seedOwner.js';
 import { logger } from '../utils/logger.js';
+import { config } from '../config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,12 +19,21 @@ const __dirname = path.dirname(__filename);
  */
 export function createServer(getSocketStatus, getSocket = null) {
   const app = express();
+  let allowedOrigins = ['http://localhost:5173', 'http://localhost:5340', 'http://localhost:3000'];
 
-  // CORS for frontend dev server
-  app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5340', 'http://localhost:3000'],
-    credentials: true
-  }));
+  if (config.origin && config.origin.trim() !== "") {
+    const productionOrigins = config.origin.split(',').map(o => o.trim());
+    allowedOrigins = [...allowedOrigins, ...productionOrigins];
+  }
+
+  const uniqueOrigins = [...new Set(allowedOrigins)];
+
+  app.use(
+    cors({
+      origin: uniqueOrigins,
+      credentials: true
+    })
+  );
 
   app.use(express.json());
 
@@ -83,6 +93,7 @@ export function createServer(getSocketStatus, getSocket = null) {
       }
     });
   });
+
 
   return app;
 }

@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const config = {
+  origin: process.env.ORIGIN_URL || "",
   // Server configuration
   port: parseInt(process.env.PORT || '5340', 10),
   
