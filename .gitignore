@@ -1,0 +1,19 @@
+# Dependencies and generated frontend output
+**/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Secrets and local configuration
+backend/.env
+backend/auth_info/
+
+# Local database files
+backend/data/*.sqlite
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
+
+# Logs and local tooling
+**/*.log
+**/.DS_Store
+.vscode/
+.idea/
