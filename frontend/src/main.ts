@@ -8,6 +8,7 @@ type Stats = { activeEvents: number; pendingReminders: number; sentReminders: nu
 const root = document.querySelector<HTMLDivElement>('#app')!
 const tokenKey = 'crb_token'
 const userKey = 'crb_user'
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
 let token = localStorage.getItem(tokenKey)
 let currentUser: User | null = JSON.parse(localStorage.getItem(userKey) || 'null')
 let path = window.location.pathname
@@ -20,7 +21,7 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers)
   headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(`/api${url}`, { ...options, headers })
+  const response = await fetch(`${apiBaseUrl}${url}`, { ...options, headers })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
     if (response.status === 401) logout()
