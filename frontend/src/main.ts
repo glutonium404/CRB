@@ -9,6 +9,7 @@ const root = document.querySelector<HTMLDivElement>('#app')!
 const tokenKey = 'crb_token'
 const userKey = 'crb_user'
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
+console.log({apiBaseUrl})
 let token = localStorage.getItem(tokenKey)
 let currentUser: User | null = JSON.parse(localStorage.getItem(userKey) || 'null')
 let path = window.location.pathname
