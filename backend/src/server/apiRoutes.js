@@ -435,7 +435,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    */
   router.get('/users', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
     try {
-      const users = userRepo.listUsers(req.user.role === 'admin' ? 'cr' : null);
+      const users = userRepo.listUsers(req.user.role === 'super_admin' ? 'admin' : 'cr');
       res.json({ success: true, count: users.length, data: users });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
