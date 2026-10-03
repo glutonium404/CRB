@@ -164,7 +164,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    * POST /api/events
    * Body: { type, title, event_date, venue?, syllabus?, link?, notes?, target_group_jid?, sendNow? }
    */
-  router.post('/events', authMiddleware, (req, res) => {
+  router.post('/events', authMiddleware, async (req, res) => {
     try {
       const { type, title, event_date, venue, syllabus, link, notes, custom_message, target_group_jid, sendNow } = req.body;
 
@@ -174,6 +174,49 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       if (custom_message && !String(custom_message).trim()) {
         return res.status(400).json({ success: false, error: 'Raw message cannot be empty' });
       }
+
+      // Raw messages are intentionally not interpreted as events. They only
+      // need a destination and text, then are sent unchanged.
+      if (custom_message) {
+        const targetGroup = target_group_jid
+          ? groupRepo.getGroupByJid(target_group_jid)
+          : groupRepo.getDefaultGroup();
+        if (!targetGroup) {
+          return res.status(400).json({ success: false, error: 'Select a target group' });
+        }
+        if (req.user.role === 'cr' && !groupRepo.isGroupAssignedToUser(req.user.id, targetGroup.jid)) {
+          return res.status(403).json({ success: false, error: 'You are not assigned to this group' });
+        }
+
+        const sock = getSocket();
+        if (!sock) {
+          return res.status(503).json({ success: false, error: 'WhatsApp bot is not connected' });
+        }
+
+        const rawMessage = String(custom_message).trim();
+        try {
+          await sock.sendMessage(targetGroup.jid, { text: rawMessage });
+        } catch (err) {
+          logger.error('Failed to send raw dashboard message:', err);
+          return res.status(500).json({ success: false, error: `Failed to send: ${err.message}` });
+        }
+
+        const eventId = eventRepo.createEvent({
+          type: 'broadcast',
+          title: 'Raw message',
+          event_date: new Date(),
+          custom_message: rawMessage,
+          message_template: 'standard',
+          target_group_jid: targetGroup.jid,
+          created_by: `web:${req.user.username}`
+        });
+        const savedEvent = eventRepo.getEventById(eventId);
+        return res.status(201).json({
+          success: true,
+          data: { ...savedEvent, reminders: [], immediateSent: true }
+        });
+      }
+
       if (!event_date && !custom_message) {
         return res.status(400).json({ success: false, error: 'Event date is required' });
       }
