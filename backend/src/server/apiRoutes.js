@@ -55,6 +55,19 @@ export function createApiRoutes(getSocket, getSocketStatus) {
     res.json({ success: true, user: req.user });
   });
 
+  router.get('/preferences/message-template', authMiddleware, (req, res) => {
+    res.json({ success: true, data: { messageTemplate: req.user.message_template || 'standard' } });
+  });
+
+  router.put('/preferences/message-template', authMiddleware, (req, res) => {
+    const allowed = ['standard', 'compact', 'minimal'];
+    if (!allowed.includes(req.body.messageTemplate)) {
+      return res.status(400).json({ success: false, error: 'Invalid message template' });
+    }
+    const user = userRepo.updateUser(req.user.id, { messageTemplate: req.body.messageTemplate });
+    res.json({ success: true, data: { messageTemplate: user.message_template } });
+  });
+
   /**
    * POST /api/auth/change-password
    * Body: { currentPassword, newPassword }
@@ -153,10 +166,13 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    */
   router.post('/events', authMiddleware, (req, res) => {
     try {
-      const { type, title, event_date, venue, syllabus, link, notes, target_group_jid, sendNow } = req.body;
+      const { type, title, event_date, venue, syllabus, link, notes, custom_message, target_group_jid, sendNow } = req.body;
 
-      if (!title) {
+      if (!title && !custom_message) {
         return res.status(400).json({ success: false, error: 'Title is required' });
+      }
+      if (custom_message && !String(custom_message).trim()) {
+        return res.status(400).json({ success: false, error: 'Raw message cannot be empty' });
       }
       if (!event_date) {
         return res.status(400).json({ success: false, error: 'Event date is required' });
@@ -185,12 +201,14 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       // Save event
       const eventId = eventRepo.createEvent({
         type: type || 'ct',
-        title,
+        title: title || 'Custom announcement',
         event_date: eventDate,
         venue: venue || null,
         syllabus: syllabus || null,
         link: link || null,
         notes: notes || null,
+        custom_message: custom_message ? String(custom_message).trim() : null,
+        message_template: req.user.message_template || 'standard',
         target_group_jid: targetGroup.jid,
         created_by: `web:${req.user.username}`
       }, reminders);
@@ -248,6 +266,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       if (req.body.syllabus !== undefined) updates.syllabus = req.body.syllabus;
       if (req.body.link !== undefined) updates.link = req.body.link;
       if (req.body.notes !== undefined) updates.notes = req.body.notes;
+      if (req.body.custom_message !== undefined) updates.custom_message = req.body.custom_message || null;
       if (req.body.status !== undefined) updates.status = req.body.status;
 
       if (req.body.event_date) {

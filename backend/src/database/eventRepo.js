@@ -12,9 +12,9 @@ export const eventRepo = {
 
     const insertEvent = db.prepare(`
       INSERT INTO events (
-        type, title, event_date, venue, syllabus, link, notes, target_group_jid, created_by, status
+        type, title, event_date, venue, syllabus, link, notes, custom_message, message_template, target_group_jid, created_by, status
       ) VALUES (
-        @type, @title, @event_date, @venue, @syllabus, @link, @notes, @target_group_jid, @created_by, 'active'
+        @type, @title, @event_date, @venue, @syllabus, @link, @notes, @custom_message, @message_template, @target_group_jid, @created_by, 'active'
       )
     `);
 
@@ -32,6 +32,8 @@ export const eventRepo = {
         syllabus: eventData.syllabus || null,
         link: eventData.link || null,
         notes: eventData.notes || null,
+        custom_message: eventData.custom_message || null,
+        message_template: eventData.message_template || 'standard',
         target_group_jid: eventData.target_group_jid,
         created_by: eventData.created_by || 'system'
       });
@@ -107,6 +109,7 @@ export const eventRepo = {
     if (updates.syllabus !== undefined) { fields.push('syllabus = ?'); values.push(updates.syllabus); }
     if (updates.link !== undefined) { fields.push('link = ?'); values.push(updates.link); }
     if (updates.notes !== undefined) { fields.push('notes = ?'); values.push(updates.notes); }
+    if (updates.custom_message !== undefined) { fields.push('custom_message = ?'); values.push(updates.custom_message); }
     if (updates.target_group_jid !== undefined) { fields.push('target_group_jid = ?'); values.push(updates.target_group_jid); }
     if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
 

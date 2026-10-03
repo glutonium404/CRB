@@ -105,4 +105,15 @@ function initTables(database) {
   if (!adminColumns.some(column => column.name === 'is_active')) {
     database.exec('ALTER TABLE admins ADD COLUMN is_active INTEGER DEFAULT 1');
   }
+  const userColumns = database.prepare('PRAGMA table_info(web_users)').all();
+  if (!userColumns.some(column => column.name === 'message_template')) {
+    database.exec("ALTER TABLE web_users ADD COLUMN message_template TEXT NOT NULL DEFAULT 'standard'");
+  }
+  const eventColumns = database.prepare('PRAGMA table_info(events)').all();
+  if (!eventColumns.some(column => column.name === 'custom_message')) {
+    database.exec('ALTER TABLE events ADD COLUMN custom_message TEXT');
+  }
+  if (!eventColumns.some(column => column.name === 'message_template')) {
+    database.exec("ALTER TABLE events ADD COLUMN message_template TEXT NOT NULL DEFAULT 'standard'");
+  }
 }

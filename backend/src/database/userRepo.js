@@ -67,7 +67,7 @@ export const userRepo = {
    */
   listUsers(roleFilter = null) {
     const db = getDb();
-    let query = 'SELECT id, username, display_name, role, phone, created_by, is_active, created_at, last_login FROM web_users';
+    let query = 'SELECT id, username, display_name, role, phone, message_template, created_by, is_active, created_at, last_login FROM web_users';
     const params = [];
 
     if (roleFilter) {
@@ -91,6 +91,7 @@ export const userRepo = {
     if (updates.role !== undefined) { fields.push('role = ?'); values.push(updates.role); }
     if (updates.phone !== undefined) { fields.push('phone = ?'); values.push(updates.phone); }
     if (updates.isActive !== undefined) { fields.push('is_active = ?'); values.push(updates.isActive ? 1 : 0); }
+    if (updates.messageTemplate !== undefined) { fields.push('message_template = ?'); values.push(updates.messageTemplate); }
 
     if (fields.length === 0) return null;
 
