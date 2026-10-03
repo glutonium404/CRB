@@ -288,7 +288,7 @@ header {
 
 .form-panel { display: block; width: 100%; max-width: 850px; min-width: 0; padding: 25px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; }
 .form-panel > * { max-width: 100%; min-width: 0; }
-.form-panel label { width: 100%; overflow-wrap: anywhere; }
+.form-panel label { display: grid; min-width: 0; gap: 7px; color: var(--ink-soft); font-size: .72rem; font-weight: 600; position: relative; overflow-wrap: anywhere; }
 .form-panel select, .form-panel input, .form-panel textarea { display: block; min-width: 0; max-width: 100%; }
 .form-grid { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 21px; }
 .form-grid .wide { grid-column: 1 / -1; }
@@ -304,7 +304,7 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 textarea { min-height: 92px; resize: vertical; }
-.form-actions { min-width: 0; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 26px; }
+.form-actions { min-width: 0; flex-wrap: wrap; gap: 10px; margin-block: 26px; }
 .raw-fields { display: grid; min-width: 0; gap: 24px; }
 .loading { padding: 80px 0; color: var(--muted); text-align: center; }
 .empty { padding: 45px 20px; color: var(--muted); text-align: center; }
