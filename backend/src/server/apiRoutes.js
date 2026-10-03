@@ -174,11 +174,11 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       if (custom_message && !String(custom_message).trim()) {
         return res.status(400).json({ success: false, error: 'Raw message cannot be empty' });
       }
-      if (!event_date) {
+      if (!event_date && !custom_message) {
         return res.status(400).json({ success: false, error: 'Event date is required' });
       }
 
-      const eventDate = parseDateTime(event_date);
+      const eventDate = parseDateTime(event_date || new Date().toISOString());
       if (!eventDate || isNaN(eventDate.getTime())) {
         return res.status(400).json({ success: false, error: `Could not parse date: "${event_date}"` });
       }
@@ -196,7 +196,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       }
 
       // Generate reminders
-      const reminders = reminderEngine.generateReminders(type || 'ct', eventDate);
+      const reminders = custom_message ? [] : reminderEngine.generateReminders(type || 'ct', eventDate);
 
       // Save event
       const eventId = eventRepo.createEvent({
