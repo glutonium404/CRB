@@ -229,6 +229,7 @@ function userDialog(role: 'admin' | 'cr'): void {
   const dialog = document.createElement('dialog')
   dialog.innerHTML = `<form method="dialog" id="user-form" class="dialog-form"><h2>Add ${role === 'admin' ? 'admin' : 'CR'} account</h2><label>Username<input name="username" required></label><label>Display name<input name="displayName" required></label><label>Password<input name="password" type="password" minlength="6" required></label><input type="hidden" name="role" value="${role}"><label>Phone<input name="phone" inputmode="numeric" pattern="[0-9]+" placeholder="8801…" required></label><div class="form-actions"><button type="button" class="secondary" value="cancel">Cancel</button><button class="primary" value="save">Create ${role === 'admin' ? 'admin' : 'CR'}</button></div></form>`
   document.body.append(dialog); dialog.showModal()
+  dialog.querySelector<HTMLButtonElement>('button[value="cancel"]')?.addEventListener('click', () => { dialog.close(); dialog.remove() })
   dialog.querySelector<HTMLFormElement>('#user-form')!.addEventListener('submit', async event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget as HTMLFormElement)); try { await api('/users', { method: 'POST', body: JSON.stringify(data) }); dialog.close(); dialog.remove(); showToast('User created'); role === 'cr' ? crManagementPage() : usersPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Create failed', true) } })
   dialog.addEventListener('close', () => dialog.remove())
 }
