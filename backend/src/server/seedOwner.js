@@ -1,6 +1,7 @@
 import { config } from '../config.js';
 import { userRepo } from '../database/userRepo.js';
 import { logger } from '../utils/logger.js';
+import { adminRepo } from '../database/adminRepo.js';
 
 /**
  * Auto-seeds the first OWNER_NUMBER as a super_admin dashboard user
@@ -32,6 +33,7 @@ export function seedOwnerAccount() {
       phone: ownerPhone,
       createdBy: null
     });
+    adminRepo.addAdmin(ownerPhone, 'Super Admin (Owner)', 'super_admin');
 
     logger.success(`══════════════════════════════════════════════════`);
     logger.success(`  🔑 Dashboard Super Admin Account Created!`);

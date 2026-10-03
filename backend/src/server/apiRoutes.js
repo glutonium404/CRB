@@ -549,6 +549,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
         phone: String(phone).trim(),
         createdBy: req.user.id
       });
+      adminRepo.addAdmin(phone, displayName, targetRole);
 
       const newUser = userRepo.getUserById(userId);
       res.status(201).json({ success: true, data: newUser });
@@ -580,7 +581,14 @@ export function createApiRoutes(getSocket, getSocketStatus) {
         return res.status(403).json({ success: false, error: 'Cannot promote to super_admin' });
       }
 
+      const previousPhone = target.phone;
       const updated = userRepo.updateUser(id, req.body);
+      if (req.body.phone !== undefined && req.body.phone !== previousPhone) {
+        adminRepo.removeAdmin(previousPhone);
+        adminRepo.addAdmin(req.body.phone, updated.display_name, updated.role);
+      } else if (req.body.isActive !== undefined) {
+        adminRepo.setActive(updated.phone, Boolean(req.body.isActive));
+      }
       res.json({ success: true, data: updated });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
@@ -607,6 +615,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       if (req.user.id === id) {
         return res.status(400).json({ success: false, error: 'Cannot delete your own account' });
       }
+      adminRepo.removeAdmin(target.phone);
       const result = getDb().prepare('DELETE FROM web_users WHERE id = ?').run(id);
       if (!result.changes) return res.status(404).json({ success: false, error: 'User not found' });
       res.json({ success: true, message: `User "${target.username}" permanently deleted` });
@@ -630,6 +639,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
         return res.status(403).json({ success: false, error: 'Admins cannot suspend other admins' });
       }
       userRepo.deactivateUser(id);
+      adminRepo.setActive(target.phone, false);
       res.json({ success: true, message: `User "${target.username}" suspended` });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
