@@ -95,7 +95,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
   router.get('/events', authMiddleware, (req, res) => {
     try {
       const type = req.query.type || null;
-      const events = eventRepo.listUpcomingEvents(type);
+      const events = eventRepo.listUpcomingEvents(type, req.user.role === 'cr' ? groupRepo.listAssignedGroupJids(req.user.id) : null);
       res.json({ success: true, count: events.length, data: events });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
@@ -109,12 +109,16 @@ export function createApiRoutes(getSocket, getSocketStatus) {
   router.get('/events/all', authMiddleware, (req, res) => {
     try {
       const db = getDb();
-      const events = db.prepare(`
+      let events = db.prepare(`
         SELECT e.*, g.name AS group_name, g.alias AS group_alias
         FROM events e
         LEFT JOIN groups g ON e.target_group_jid = g.jid
         ORDER BY e.event_date DESC
       `).all();
+      if (req.user.role === 'cr') {
+        const allowed = new Set(groupRepo.listAssignedGroupJids(req.user.id));
+        events = events.filter(event => allowed.has(event.target_group_jid));
+      }
       res.json({ success: true, count: events.length, data: events });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
@@ -131,6 +135,9 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       const event = eventRepo.getEventById(id);
       if (!event) {
         return res.status(404).json({ success: false, error: `Event #${id} not found` });
+      }
+      if (req.user.role === 'cr' && !groupRepo.isGroupAssignedToUser(req.user.id, event.target_group_jid)) {
+        return res.status(403).json({ success: false, error: 'You are not assigned to this group' });
       }
 
       const reminders = eventRepo.getRemindersForEvent(id);
@@ -167,6 +174,9 @@ export function createApiRoutes(getSocket, getSocketStatus) {
 
       if (!targetGroup) {
         return res.status(400).json({ success: false, error: 'No target group configured. Set a default group first.' });
+      }
+      if (req.user.role === 'cr' && !groupRepo.isGroupAssignedToUser(req.user.id, targetGroup.jid)) {
+        return res.status(403).json({ success: false, error: 'You are not assigned to this group' });
       }
 
       // Generate reminders
@@ -227,7 +237,9 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       if (!existing) {
         return res.status(404).json({ success: false, error: `Event #${id} not found` });
       }
-
+      if (req.user.role === 'cr' && !groupRepo.isGroupAssignedToUser(req.user.id, existing.target_group_jid)) {
+        return res.status(403).json({ success: false, error: 'You are not assigned to this group' });
+      }
       const updates = {};
       let newReminders = null;
 
@@ -268,6 +280,9 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       if (!existing) {
         return res.status(404).json({ success: false, error: `Event #${id} not found` });
       }
+      if (req.user.role === 'cr' && !groupRepo.isGroupAssignedToUser(req.user.id, existing.target_group_jid)) {
+        return res.status(403).json({ success: false, error: 'You are not assigned to this group' });
+      }
 
       if (existing.status === 'cancelled') {
         return res.status(400).json({ success: false, error: `Event #${id} is already cancelled` });
@@ -296,9 +311,16 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    * DELETE /api/events/:id
    * Hard delete — admin+ only
    */
-  router.delete('/events/:id', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
+  router.delete('/events/:id', authMiddleware, (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
+      const existing = eventRepo.getEventById(id);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: `Event #${id} not found` });
+      }
+      if (req.user.role === 'cr' && !groupRepo.isGroupAssignedToUser(req.user.id, existing.target_group_jid)) {
+        return res.status(403).json({ success: false, error: 'You are not assigned to this group' });
+      }
       const deleted = eventRepo.deleteEvent(id);
       if (!deleted) {
         return res.status(404).json({ success: false, error: `Event #${id} not found` });
@@ -319,6 +341,9 @@ export function createApiRoutes(getSocket, getSocketStatus) {
       const event = eventRepo.getEventById(id);
       if (!event) {
         return res.status(404).json({ success: false, error: `Event #${id} not found` });
+      }
+      if (req.user.role === 'cr' && !groupRepo.isGroupAssignedToUser(req.user.id, event.target_group_jid)) {
+        return res.status(403).json({ success: false, error: 'You are not assigned to this group' });
       }
 
       if (event.status === 'cancelled') {
@@ -352,7 +377,9 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    */
   router.get('/groups', authMiddleware, (req, res) => {
     try {
-      const groups = groupRepo.listGroups();
+      const groups = req.user.role === 'cr'
+        ? groupRepo.listAssignedGroups(req.user.id)
+        : groupRepo.listGroups();
       res.json({ success: true, count: groups.length, data: groups });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
@@ -362,7 +389,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
   /**
    * PUT /api/groups/:jid/default
    */
-  router.put('/groups/:jid/default', authMiddleware, requireRole('cr', 'admin', 'super_admin'), (req, res) => {
+  router.put('/groups/:jid/default', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
     try {
       const jid = decodeURIComponent(req.params.jid);
       const group = groupRepo.getGroupByJid(jid);
@@ -381,7 +408,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    * PUT /api/groups/:jid/alias
    * Body: { alias }
    */
-  router.put('/groups/:jid/alias', authMiddleware, requireRole('cr', 'admin', 'super_admin'), (req, res) => {
+  router.put('/groups/:jid/alias', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
     try {
       const jid = decodeURIComponent(req.params.jid);
       const { alias } = req.body;
@@ -405,7 +432,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    * POST /api/groups/sync
    * Force re-sync participating groups from WhatsApp.
    */
-  router.post('/groups/sync', authMiddleware, requireRole('cr', 'admin', 'super_admin'), async (req, res) => {
+  router.post('/groups/sync', authMiddleware, requireRole('admin', 'super_admin'), async (req, res) => {
     try {
       const sock = getSocket();
       if (!sock) {
@@ -435,8 +462,38 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    */
   router.get('/users', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
     try {
-      const users = userRepo.listUsers(req.user.role === 'super_admin' ? 'admin' : 'cr');
+      const role = req.user.role === 'super_admin' && req.query.role !== 'cr' ? 'admin' : 'cr';
+      const users = userRepo.listUsers(role).map(user => ({
+        ...user,
+        assigned_groups: groupRepo.listAssignedGroups(user.id)
+      }));
       res.json({ success: true, count: users.length, data: users });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  /**
+   * PUT /api/users/:id/groups
+   * Body: { groupJids: string[] }
+   */
+  router.put('/users/:id/groups', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const target = userRepo.getUserById(id);
+      if (!target || target.role !== 'cr') {
+        return res.status(404).json({ success: false, error: 'CR account not found' });
+      }
+      if (!Array.isArray(req.body.groupJids)) {
+        return res.status(400).json({ success: false, error: 'groupJids must be an array' });
+      }
+      const known = new Set(groupRepo.listGroups().map(group => group.jid));
+      const groupJids = [...new Set(req.body.groupJids.map(String))];
+      if (groupJids.some(jid => !known.has(jid))) {
+        return res.status(400).json({ success: false, error: 'One or more groups do not exist' });
+      }
+      groupRepo.setAssignedGroups(id, groupJids);
+      res.json({ success: true, data: groupRepo.listAssignedGroups(id) });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
     }

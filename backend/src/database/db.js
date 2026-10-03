@@ -86,6 +86,15 @@ function initTables(database) {
       last_login DATETIME
     );
 
+    CREATE TABLE IF NOT EXISTS web_user_groups (
+      user_id INTEGER NOT NULL,
+      group_jid TEXT NOT NULL,
+      assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, group_jid),
+      FOREIGN KEY(user_id) REFERENCES web_users(id) ON DELETE CASCADE,
+      FOREIGN KEY(group_jid) REFERENCES groups(jid) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_reminders_status_time ON reminders(status, scheduled_for);
     CREATE INDEX IF NOT EXISTS idx_events_status_date ON events(status, event_date);
     CREATE INDEX IF NOT EXISTS idx_web_users_username ON web_users(username);

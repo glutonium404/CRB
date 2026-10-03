@@ -65,7 +65,7 @@ export const eventRepo = {
    * Lists upcoming active events ordered by event_date ASC.
    * @param {string} [type] Filter by 'ct', 'assignment', 'lab', etc.
    */
-  listUpcomingEvents(type = null) {
+  listUpcomingEvents(type = null, groupJids = null) {
     const db = getDb();
     let query = `
       SELECT e.*, g.name AS group_name, g.alias AS group_alias
@@ -78,6 +78,12 @@ export const eventRepo = {
     if (type) {
       query += ` AND LOWER(e.type) = LOWER(?)`;
       params.push(type);
+    }
+
+    if (Array.isArray(groupJids)) {
+      if (groupJids.length === 0) return [];
+      query += ` AND e.target_group_jid IN (${groupJids.map(() => '?').join(',')})`;
+      params.push(...groupJids);
     }
 
     query += ` ORDER BY e.event_date ASC`;

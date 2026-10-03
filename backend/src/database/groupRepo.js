@@ -25,6 +25,36 @@ export const groupRepo = {
     return db.prepare('SELECT rowid, * FROM groups ORDER BY rowid ASC').all();
   },
 
+  listAssignedGroups(userId) {
+    const db = getDb();
+    return db.prepare(`
+      SELECT g.rowid, g.*
+      FROM groups g
+      JOIN web_user_groups wug ON wug.group_jid = g.jid
+      WHERE wug.user_id = ?
+      ORDER BY g.rowid ASC
+    `).all(userId);
+  },
+
+  listAssignedGroupJids(userId) {
+    return this.listAssignedGroups(userId).map(group => group.jid);
+  },
+
+  isGroupAssignedToUser(userId, jid) {
+    const db = getDb();
+    return Boolean(db.prepare('SELECT 1 FROM web_user_groups WHERE user_id = ? AND group_jid = ?').get(userId, jid));
+  },
+
+  setAssignedGroups(userId, groupJids) {
+    const db = getDb();
+    const tx = db.transaction(() => {
+      db.prepare('DELETE FROM web_user_groups WHERE user_id = ?').run(userId);
+      const insert = db.prepare('INSERT INTO web_user_groups (user_id, group_jid) VALUES (?, ?)');
+      for (const jid of groupJids) insert.run(userId, jid);
+    });
+    tx();
+  },
+
   /**
    * Gets a group by its full JID.
    */
