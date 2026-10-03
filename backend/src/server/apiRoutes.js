@@ -362,7 +362,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
   /**
    * PUT /api/groups/:jid/default
    */
-  router.put('/groups/:jid/default', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
+  router.put('/groups/:jid/default', authMiddleware, requireRole('cr', 'admin', 'super_admin'), (req, res) => {
     try {
       const jid = decodeURIComponent(req.params.jid);
       const group = groupRepo.getGroupByJid(jid);
@@ -381,7 +381,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    * PUT /api/groups/:jid/alias
    * Body: { alias }
    */
-  router.put('/groups/:jid/alias', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
+  router.put('/groups/:jid/alias', authMiddleware, requireRole('cr', 'admin', 'super_admin'), (req, res) => {
     try {
       const jid = decodeURIComponent(req.params.jid);
       const { alias } = req.body;
@@ -405,7 +405,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    * POST /api/groups/sync
    * Force re-sync participating groups from WhatsApp.
    */
-  router.post('/groups/sync', authMiddleware, requireRole('admin', 'super_admin'), async (req, res) => {
+  router.post('/groups/sync', authMiddleware, requireRole('cr', 'admin', 'super_admin'), async (req, res) => {
     try {
       const sock = getSocket();
       if (!sock) {
@@ -435,7 +435,7 @@ export function createApiRoutes(getSocket, getSocketStatus) {
    */
   router.get('/users', authMiddleware, requireRole('admin', 'super_admin'), (req, res) => {
     try {
-      const users = userRepo.listUsers();
+      const users = userRepo.listUsers(req.user.role === 'admin' ? 'cr' : null);
       res.json({ success: true, count: users.length, data: users });
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
@@ -465,13 +465,17 @@ export function createApiRoutes(getSocket, getSocketStatus) {
 
       const targetRole = role || 'cr';
 
-      // Enforce creation rules
+      // Super admins create dashboard admins; admins create CR accounts.
       if (targetRole === 'super_admin') {
         return res.status(403).json({ success: false, error: 'Cannot create super_admin accounts' });
       }
 
-      if (targetRole === 'admin' && req.user.role !== 'super_admin') {
-        return res.status(403).json({ success: false, error: 'Only super admins can create admin accounts' });
+      if (req.user.role === 'super_admin' && targetRole !== 'admin') {
+        return res.status(403).json({ success: false, error: 'Super admins can only create admin accounts here' });
+      }
+
+      if (req.user.role === 'admin' && targetRole !== 'cr') {
+        return res.status(403).json({ success: false, error: 'Admins can only create CR accounts' });
       }
 
       // Check if username already exists

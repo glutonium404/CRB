@@ -127,15 +127,17 @@ function loginPage(): void {
 }
 
 function layout(content: string, title: string): void {
-  const admin = currentUser?.role !== 'cr'
+  const isSuperAdmin = currentUser?.role === 'super_admin'
+  const isAdmin = currentUser?.role === 'admin'
+  const canManageGroups = Boolean(currentUser)
   root.innerHTML = `<div class="app-shell"><aside class="sidebar">
     <div class="logo"><span>✦</span><div>CRB<small>CONTROL CENTER</small></div></div>
     <nav><button data-nav="/" class="${path === '/' ? 'active' : ''}">${icon('grid')} Overview</button>
       <button data-nav="/events" class="${path.startsWith('/events') ? 'active' : ''}">${icon('calendar')} Events</button>
-      ${admin ? `<button data-nav="/groups" class="${path === '/groups' ? 'active' : ''}">${icon('groups')} Groups</button>
-      <button data-nav="/users" class="${path === '/users' ? 'active' : ''}">${icon('users')} Admins</button>
-      <button data-nav="/wa-admins" class="${path === '/wa-admins' ? 'active' : ''}">${icon('phone')} CR</button>` : ''}
-      ${admin ? `<button data-nav="/settings" class="${path === '/settings' ? 'active' : ''}">${icon('settings')} Settings</button>` : ''}
+      ${canManageGroups ? `<button data-nav="/groups" class="${path === '/groups' ? 'active' : ''}">${icon('groups')} Groups</button>` : ''}
+      ${isSuperAdmin ? `<button data-nav="/users" class="${path === '/users' ? 'active' : ''}">${icon('users')} Admins</button>` : ''}
+      ${isSuperAdmin || isAdmin ? `<button data-nav="/wa-admins" class="${path === '/wa-admins' ? 'active' : ''}">${icon('phone')} CR</button>` : ''}
+      ${isSuperAdmin || isAdmin ? `<button data-nav="/settings" class="${path === '/settings' ? 'active' : ''}">${icon('settings')} Settings</button>` : ''}
     </nav><div class="sidebar-bottom"><div class="profile"><div class="avatar">${escape((currentUser?.display_name || 'U')[0])}</div><div><strong>${escape(currentUser?.display_name)}</strong><small>${escape(currentUser?.role?.replace('_', ' '))}</small></div></div><button id="logout" class="logout">${icon('logout')} Sign out</button></div>
   </aside><main class="main"><header><div><p class="eyebrow">CRB / ${escape(title.toUpperCase())}</p><h1>${escape(title)}</h1></div><div class="header-actions"><button id="theme-toggle" class="theme-toggle">${darkMode ? 'Light mode' : 'Dark mode'}</button><span class="live-dot"></span> System online</div></header><section class="content">${content}</section></main></div>`
   document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => button.addEventListener('click', () => navigate(button.dataset.nav || '/')))
@@ -216,16 +218,16 @@ async function usersPage(): Promise<void> {
   try {
     const users = (await api<{ data: User[] }>('/users')).data
     layout(`<div class="page-toolbar"><p class="muted">Dashboard accounts and access roles</p><button id="new-user" class="primary">+ Add admin</button></div><section class="panel table-panel"><div class="table-head"><span>USER</span><span>ROLE</span><span>PHONE</span><span>STATUS</span><span>ACTIONS</span></div>${users.map(user => `<div class="table-row"><div><strong>${escape(user.display_name)}</strong><small>@${escape(user.username)}</small></div><span class="role">${escape(user.role.replace('_', ' '))}</span><span>${escape(user.phone || '—')}</span><span class="status ${user.is_active ? 'active' : 'cancelled'}">${user.is_active ? 'active' : 'suspended'}</span><div class="row-actions">${user.role !== 'super_admin' ? `${user.is_active ? `<button data-deactivate="${user.id}" data-tooltip="Suspend admin" aria-label="Suspend admin">${icon('suspend')}</button>` : `<button data-activate="${user.id}" data-tooltip="Restore admin" aria-label="Restore admin">${icon('restore')}</button>`}<button data-delete-user="${user.id}" data-tooltip="Delete permanently" aria-label="Delete permanently">${icon('delete')}</button>` : '—'}</div></div>`).join('')}</section>`, 'Admins')
-    document.querySelector<HTMLButtonElement>('#new-user')?.addEventListener('click', () => userDialog())
+    document.querySelector<HTMLButtonElement>('#new-user')?.addEventListener('click', () => userDialog('admin'))
     document.querySelectorAll<HTMLButtonElement>('[data-deactivate]').forEach(button => button.addEventListener('click', async () => { if (!await confirmDialog('Suspend admin', 'This account will no longer be able to sign in.')) return; try { await api(`/users/${button.dataset.deactivate}`, { method: 'DELETE' }); showToast('Admin suspended'); usersPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Action failed', true) } }))
     document.querySelectorAll<HTMLButtonElement>('[data-activate]').forEach(button => button.addEventListener('click', async () => { try { await api(`/users/${button.dataset.activate}`, { method: 'PUT', body: JSON.stringify({ isActive: true }) }); showToast('User restored'); usersPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Restore failed', true) } }))
     document.querySelectorAll<HTMLButtonElement>('[data-delete-user]').forEach(button => button.addEventListener('click', async () => { if (!await confirmDialog('Delete admin permanently', 'This permanently removes the admin account. This cannot be undone.')) return; try { await api(`/users/${button.dataset.deleteUser}/permanent`, { method: 'DELETE' }); showToast('Admin permanently deleted'); usersPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Delete failed', true) } }))
   } catch (err) { showToast(err instanceof Error ? err.message : 'Could not load users', true) }
 }
 
-function userDialog(): void {
+function userDialog(role: 'admin' | 'cr'): void {
   const dialog = document.createElement('dialog')
-  dialog.innerHTML = `<form method="dialog" id="user-form" class="dialog-form"><h2>Add dashboard user</h2><label>Username<input name="username" required></label><label>Display name<input name="displayName" required></label><label>Password<input name="password" type="password" minlength="6" required></label><label>Role<select name="role"><option value="cr">CR</option><option value="admin">Admin</option></select></label><label>Phone<input name="phone" inputmode="numeric" pattern="[0-9]+" placeholder="8801…" required></label><div class="form-actions"><button type="button" class="secondary" value="cancel">Cancel</button><button class="primary" value="save">Create user</button></div></form>`
+  dialog.innerHTML = `<form method="dialog" id="user-form" class="dialog-form"><h2>Add ${role === 'admin' ? 'admin' : 'CR'} account</h2><label>Username<input name="username" required></label><label>Display name<input name="displayName" required></label><label>Password<input name="password" type="password" minlength="6" required></label><input type="hidden" name="role" value="${role}"><label>Phone<input name="phone" inputmode="numeric" pattern="[0-9]+" placeholder="8801…" required></label><div class="form-actions"><button type="button" class="secondary" value="cancel">Cancel</button><button class="primary" value="save">Create ${role === 'admin' ? 'admin' : 'CR'}</button></div></form>`
   document.body.append(dialog); dialog.showModal()
   dialog.querySelector<HTMLFormElement>('#user-form')!.addEventListener('submit', async event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget as HTMLFormElement)); try { await api('/users', { method: 'POST', body: JSON.stringify(data) }); dialog.close(); dialog.remove(); showToast('User created'); usersPage() } catch (err) { showToast(err instanceof Error ? err.message : 'Create failed', true) } })
   dialog.addEventListener('close', () => dialog.remove())
@@ -255,8 +257,8 @@ function render(): void {
   if (path === '/events/new') { eventForm(); return }
   if (path.match(/^\/events\/\d+\/edit$/)) { eventForm(path.split('/')[2]); return }
   if (path === '/groups') { groupsPage(); return }
-  if (path === '/users') { usersPage(); return }
-  if (path === '/wa-admins') { adminsPage(); return }
+  if (path === '/users') { if (currentUser?.role === 'super_admin') usersPage(); else navigate('/'); return }
+  if (path === '/wa-admins') { if (currentUser?.role === 'super_admin' || currentUser?.role === 'admin') adminsPage(); else navigate('/'); return }
   if (path === '/settings') { settingsPage(); return }
   navigate('/')
 }
