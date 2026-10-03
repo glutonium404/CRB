@@ -55,6 +55,7 @@ export function createServer(getSocketStatus, getSocket = null) {
       uptime_seconds: uptimeSec,
       bot_connected: getSocketStatus ? getSocketStatus() : false,
       timestamp: new Date().toISOString(),
+      uniqueOrigins: uniqueOrigins,
       stats: {
         active_events: stats.activeEvents,
         pending_reminders: stats.pendingReminders,
