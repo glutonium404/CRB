@@ -53,7 +53,16 @@ GEMINI_API_KEY=
 ```bash
 npm run dev
 ```
-Scan the QR code printed in the terminal using WhatsApp (**Linked Devices** -> **Link a Device**).
+By default, scan the QR code printed in the terminal using WhatsApp (**Linked Devices** -> **Link a Device**).
+
+To use a pairing code instead, configure the backend before starting it:
+
+```env
+AUTH_MODE=code
+AUTH_PHONE_NUMBER=8801700000000
+```
+
+The number must include the country code and contain digits only. The backend prints a pairing code; in WhatsApp, open **Linked Devices** and choose **Link with phone number instead**. Set `AUTH_MODE=qr` (or remove it) to return to QR login. These settings are read from the deployment environment, so changing the deployment variable and restarting/redeploying does not require a code change.
 
 ---
 

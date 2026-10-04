@@ -22,6 +22,18 @@ export function isBotConnected() {
 }
 
 export async function connectToWhatsApp(onReadyCallback = null) {
+  if (!['qr', 'code'].includes(config.authMode)) {
+    throw new Error(`Unsupported AUTH_MODE "${config.authMode}". Use "qr" or "code".`);
+  }
+  if (
+    config.authMode === 'code' &&
+    (!config.pairingNumber || config.pairingNumber.length < 8 || config.pairingNumber.length > 15)
+  ) {
+    throw new Error(
+      'AUTH_MODE=code requires AUTH_PHONE_NUMBER with a country code and digits only (8-15 digits).'
+    );
+  }
+
   const { state, saveCreds } = await useMultiFileAuthState(config.authDir);
   const { version, isLatest } = await fetchLatestBaileysVersion();
   logger.info(`Starting Baileys v${version.join('.')}, isLatest: ${isLatest}`);
@@ -35,6 +47,7 @@ export async function connectToWhatsApp(onReadyCallback = null) {
   });
 
   activeSocket = sock;
+  let pairingCodeRequested = false;
 
   // Save authentication credentials whenever updated
   sock.ev.on('creds.update', saveCreds);
@@ -44,10 +57,24 @@ export async function connectToWhatsApp(onReadyCallback = null) {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\n================ QR CODE FOR WHATSAPP LOGIN ================');
-      qrcode.generate(qr, { small: true });
-      console.log('============================================================\n');
-      logger.info('Scan the QR code above with your WhatsApp app.');
+      if (config.authMode === 'code') {
+        if (!state.creds.registered && !pairingCodeRequested) {
+          pairingCodeRequested = true;
+          try {
+            const pairingCode = await sock.requestPairingCode(config.pairingNumber);
+            logger.info(`WhatsApp pairing code: ${pairingCode}`);
+            logger.info('Open WhatsApp -> Linked Devices -> Link with phone number instead.');
+          } catch (error) {
+            pairingCodeRequested = false;
+            logger.error(`Unable to request WhatsApp pairing code: ${error.message}`);
+          }
+        }
+      } else if (config.authMode === 'qr') {
+        console.log('\n================ QR CODE FOR WHATSAPP LOGIN ================');
+        qrcode.generate(qr, { small: true });
+        console.log('============================================================\n');
+        logger.info('Scan the QR code above with your WhatsApp app.');
+      }
     }
 
     if (connection === 'close') {

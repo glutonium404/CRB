@@ -17,6 +17,10 @@ export const config = {
   
   // WhatsApp & Bot configuration
   authDir: process.env.AUTH_DIR || path.join(__dirname, '..', 'auth_info'),
+  authMode: (process.env.AUTH_MODE || 'qr').trim().toLowerCase(),
+  pairingNumber: (process.env.AUTH_PHONE_NUMBER || process.env.PAIRING_NUMBER || '')
+    .trim()
+    .replace(/[^0-9]/g, ''),
   prefix: process.env.BOT_PREFIX || 'crb',
   ownerNumbers: (process.env.OWNER_NUMBERS || '')
     .split(',')
